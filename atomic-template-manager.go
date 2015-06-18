@@ -50,6 +50,7 @@ type manager struct {
 	dirs       map[string]bool
 	extensions map[string]bool
 	aliases    map[string]*string
+	templates  map[string]*ht.Template
 }
 
 func (m *manager) AddDirectory(dir string) Manager {
@@ -94,9 +95,10 @@ func (m *manager) ParseDirs(dirs ...string) []error {
 	var c = make(chan error)
 	var w sync.WaitGroup
 	m.aliases = make(map[string]*string)
+	m.templates = make(map[string]*ht.Template)
 
 	var walkDir = func(dir string) {
-
+		defer w.Done()
 		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err == os.ErrPermission {
 				c <- errors.New(path + " " + err.Error())
@@ -114,10 +116,13 @@ func (m *manager) ParseDirs(dirs ...string) []error {
 			//we're looking for then parse it and add it
 			if _, ok := m.extensions[ext]; ok {
 				alias := templateAliases(dir, path, ext)
+				//use a string pointer to avoid having the same string floating around
+				//just a small stupid attempt at optimization
 				var pathPoint *string
-				*pathPoint = path
+				pathPoint = &path
 				for _, v := range alias {
 					m.aliases[v] = pathPoint
+					m.templates[*pathPoint] = nil
 				}
 			}
 
@@ -127,8 +132,6 @@ func (m *manager) ParseDirs(dirs ...string) []error {
 		if err != nil {
 			c <- err
 		}
-
-		w.Done()
 	}
 
 	//start parsing the directories
