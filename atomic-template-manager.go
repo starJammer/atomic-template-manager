@@ -4,6 +4,7 @@ import (
 	"errors"
 	ht "html/template"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,15 +43,39 @@ type Manager interface {
 	//added by AddDirectory calls and any directories passed in here
 	//Any errors encountered during reading the files are returned
 	//in the slice of errors
+	//
+	//If you wish to update the template definitions, because
+	//you are writing new templates during http requests,
+	//call ParseDirs again with no arguments. It will reparse
+	//all the template directories
 	ParseDirs(dirs ...string) []error
+
+	//SetReparseOnExecute will tell the manager whether or not
+	//you want to cache the templates. set to true if you're
+	//developing and want to see changes in your templates immediately
+	//false otherwise because it will take longer
+	//
+	//Because of the implementation details of the html.Template
+	//it is best to either set this to true or set this to false
+	//and leave it alone. Flipping it back and forth is not great.
+	//also, because templates might be tied to each other,
+	//setting this to false will cause the ExecuteTemplate method
+	//to be almost like calling ParseDirs every time
+	//because the entire template hierarchy has to be recreated
+	//each time.
+	SetReparseOnExecute(reparse bool) Manager
 }
 
 type manager struct {
+	rootex     *sync.Mutex
 	root       *ht.Template
+	funcMap    ht.FuncMap
 	dirs       map[string]bool
 	extensions map[string]bool
-	aliases    map[string]*string
 	templates  map[string]*ht.Template
+	reparse    bool
+
+	leftDelim, rightDelim string
 }
 
 func (m *manager) AddDirectory(dir string) Manager {
@@ -69,20 +94,29 @@ func (m *manager) RemoveFileExtension(ext string) Manager {
 }
 
 func (m *manager) ExecuteTemplate(wr io.Writer, name string, data interface{}) error {
+	if m.reparse {
+		m.ParseDirs()
+	}
+
+	m.rootex.Lock()
+	defer m.rootex.Unlock()
+
 	return m.root.ExecuteTemplate(wr, name, data)
 }
 
 func (m *manager) Delims(left, right string) Manager {
-	m.root.Delims(left, right)
+	m.leftDelim, m.rightDelim = left, right
 	return m
 }
 
 func (m *manager) Funcs(funcMap ht.FuncMap) Manager {
-	m.root.Funcs(funcMap)
+	m.funcMap = funcMap
 	return m
 }
 
 func (m *manager) Lookup(name string) *ht.Template {
+	m.rootex.Lock()
+	defer m.rootex.Unlock()
 	return m.root.Lookup(name)
 }
 
@@ -92,11 +126,18 @@ func (m *manager) ParseDirs(dirs ...string) []error {
 		m.dirs[v] = true
 	}
 
+	m.rootex.Lock()
+	if len(m.root.Templates()) > 0 {
+		m.root = ht.New("atomic-template-manager")
+	}
+	m.root.Delims(m.leftDelim, m.rightDelim)
+	m.root.Funcs(m.funcMap)
+	m.rootex.Unlock()
+
 	var c = make(chan error)
 	var w sync.WaitGroup
-	m.aliases = make(map[string]*string)
-	m.templates = make(map[string]*ht.Template)
 
+	//the function we'll use for walking each directory
 	var walkDir = func(dir string) {
 		defer w.Done()
 		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -108,22 +149,42 @@ func (m *manager) ParseDirs(dirs ...string) []error {
 			if info.IsDir() {
 				return nil
 			}
-			var ext string
 
+			var ext string
 			ext = filepath.Ext(info.Name())
 
 			//if the file extension matches any file extension
 			//we're looking for then parse it and add it
 			if _, ok := m.extensions[ext]; ok {
 				alias := templateAliases(dir, path, ext)
-				//use a string pointer to avoid having the same string floating around
-				//just a small stupid attempt at optimization
-				var pathPoint *string
-				pathPoint = &path
-				for _, v := range alias {
-					m.aliases[v] = pathPoint
-					m.templates[*pathPoint] = nil
+				lalias := len(alias)
+				if lalias == 0 {
+					return nil
 				}
+				var newTemplate *ht.Template
+				//create the new template using the first alias
+				m.rootex.Lock()
+				newTemplate = m.root.New(alias[0])
+				fileContents, err := ioutil.ReadFile(path)
+
+				if err != nil {
+					return err
+				}
+
+				_, err = newTemplate.Parse(string(fileContents))
+
+				if err != nil {
+					return err
+				}
+
+				for i := 1; i < len(alias); i++ {
+					_, err = m.root.AddParseTree(alias[i], newTemplate.Tree)
+					if err != nil {
+						return err
+					}
+				}
+				m.rootex.Unlock()
+
 			}
 
 			return nil
@@ -155,6 +216,11 @@ func (m *manager) ParseDirs(dirs ...string) []error {
 	}
 
 	return nil
+}
+
+func (m *manager) SetReparseOnExecute(reparse bool) Manager {
+	m.reparse = reparse
+	return m
 }
 
 //templateAliases will generate the aliases that
@@ -198,10 +264,12 @@ func removeLeadingNumbers(p string) string {
 
 func New() Manager {
 	man := new(manager)
-	man.root = ht.New("root")
+	man.root = ht.New("atomic-template-manager")
 	man.dirs = make(map[string]bool)
 	man.extensions = make(map[string]bool)
 	man.extensions["html"] = true
 	man.extensions["tpl"] = true
+	man.reparse = false
+	man.rootex = new(sync.Mutex)
 	return man
 }
