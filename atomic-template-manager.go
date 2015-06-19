@@ -43,6 +43,7 @@ type Manager interface {
 	//Any errors encountered during reading the files are returned
 	//in the slice of errors
 	ParseDirs(dirs ...string) []error
+	Templates() []*ht.Template
 }
 
 type manager struct {
@@ -155,6 +156,10 @@ func (m *manager) ParseDirs(dirs ...string) []error {
 	}
 
 	return nil
+}
+
+func (m *manager) Templates() []*ht.Template {
+	return m.root.Templates()
 }
 
 //templateAliases will generate the aliases that
