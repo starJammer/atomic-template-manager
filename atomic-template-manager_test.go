@@ -11,7 +11,6 @@ func createDirs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	if err := os.MkdirAll(dir+"/templates/atoms/fonts", os.ModeDir|os.ModePerm); err != nil {
 		t.Fatal(err)
 	}
