@@ -186,7 +186,7 @@ func (m *manager) ParseTemplates() []error {
 
 				m.templates = append(m.templates, newTemplate)
 
-				for i := 1; i < len(alias); i++ {
+				for i := 1; i < lalias; i++ {
 					_, err = m.root.AddParseTree(alias[i], newTemplate.Tree)
 					if err != nil {
 						return err

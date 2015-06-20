@@ -25,27 +25,37 @@ func createTestTemplates(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = writeTemplateFile(dir+"/templates/top-level.html", ``)
+	err = writeTemplateFile(dir+"/templates/top-level.html", `top-level`)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = writeTemplateFile(dir+"/templates/none.none", ``)
+	err = writeTemplateFile(dir+"/templates/none.none", `none`)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = writeTemplateFile(dir+"/templates/atoms/atom-1.html", ``)
+	err = writeTemplateFile(dir+"/templates/atoms/atom-1.html", `atom-1`)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = writeTemplateFile(dir+"/templates/atoms/atom-2.tpl", ``)
+	err = writeTemplateFile(dir+"/templates/atoms/atom-2.tpl", `atom-2`)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = writeTemplateFile(dir+"/templates/atoms/fonts/font-1.html", ``)
+	err = writeTemplateFile(dir+"/templates/atoms/fonts/font-1.html", `font-1`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = writeTemplateFile(dir+"/templates/pages/page-1.html", `page 1 {{template "atoms-font-1"}}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = writeTemplateFile(dir+"/templates/pages/page-2.tpl", `page 2 {{template "pages-page-1"}}`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,8 +120,31 @@ func TestDefaultTemplatesAreFound(t *testing.T) {
 	var man Manager = New()
 
 	man.AddDirectories("./templates")
-	man.ParseTemplates()
-	if len(man.Templates()) != 4 {
-		t.Fatalf("We expected 4 templates but had : %d", len(man.Templates()))
+	errs := man.ParseTemplates()
+	if errs != nil {
+		t.Fatal(errs)
+	}
+	if len(man.Templates()) != 6 {
+		t.Fatalf("We expected 6 templates but had : %d, %v", len(man.Templates()), man.Templates())
+	}
+}
+
+func TestRemoveExtensionAndAddExtensionWork(t *testing.T) {
+	createDirs(t)
+	createTestTemplates(t)
+	defer destroyAll(t)
+
+	var man Manager = New()
+
+	man.AddDirectories("./templates")
+	man.AddFileExtension("none")
+	man.RemoveFileExtension("html")
+	man.RemoveFileExtension("tpl")
+	errs := man.ParseTemplates()
+	if errs != nil {
+		t.Fatal(errs)
+	}
+	if len(man.Templates()) != 1 {
+		t.Fatalf("We expected 1 templates but had : %d, %v", len(man.Templates()), man.Templates())
 	}
 }
