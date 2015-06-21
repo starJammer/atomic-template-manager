@@ -1,6 +1,7 @@
 package atm
 
 import (
+	"bytes"
 	"os"
 	"testing"
 )
@@ -146,5 +147,41 @@ func TestRemoveExtensionAndAddExtensionWork(t *testing.T) {
 	}
 	if len(man.Templates()) != 1 {
 		t.Fatalf("We expected 1 templates but had : %d, %v", len(man.Templates()), man.Templates())
+	}
+}
+
+func TestExecutingSimpleTemplate(t *testing.T) {
+	createDirs(t)
+	createTestTemplates(t)
+	defer destroyAll(t)
+
+	var data = map[string]string{
+		"top-level":               "top-level",
+		"top-level.html":          "top-level",
+		"atoms-atom-1":            "atom-1",
+		"atoms/atom-1.html":       "atom-1",
+		"atoms-font-1":            "font-1",
+		"atoms/fonts/font-1.html": "font-1",
+		"pages-page-1":            "page 1 font-1",
+		"pages-page-2":            "page 2 page 1 font-1",
+	}
+	var man Manager = New()
+
+	man.AddDirectories("./templates")
+	errs := man.ParseTemplates()
+	if errs != nil {
+		t.Fatal(errs)
+	}
+	w := new(bytes.Buffer)
+
+	for template, expected := range data {
+		err := man.ExecuteTemplate(w, template, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if w.String() != expected {
+			t.Fatalf("Actual render: %s\n", w.String())
+		}
+		w.Reset()
 	}
 }

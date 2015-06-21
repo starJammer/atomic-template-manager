@@ -33,7 +33,8 @@ type Manager interface {
 	//ExecuteTemplate will execute a template.
 	ExecuteTemplate(wr io.Writer, name string, data interface{}) error
 	//Delims Sets the delimiters to be used when parsing templates.
-	//The defaults are {{ and }}. Call this before calling ParseTemplates
+	//The defaults are {{ and }}. Each implementation may allow calling
+	//this at any time but with this implemention call this before calling ParseTemplates
 	Delims(left, right string) Manager
 	//Funcs sets the FuncMap for all the templates
 	Funcs(funcMap ht.FuncMap) Manager
@@ -46,7 +47,7 @@ type Manager interface {
 	//
 	//If you wish to update the template definitions, because
 	//you are writing new templates during http requests,
-	//call ParseTemplates again with no arguments. It will reparse
+	//call ParseTemplates again. It will reparse
 	//all the template directories
 	ParseTemplates() []error
 
@@ -62,10 +63,11 @@ type Manager interface {
 	//setting this to false will cause the ExecuteTemplate method
 	//to be almost like calling ParseTemplates every time
 	//because the entire template hierarchy has to be recreated
-	//each time.
+	//each time in order to capture file changes and recreate
+	//the template hierarchy.
 	SetReparseOnExecute(reparse bool) Manager
 
-	//Templates returns the number of templates in the manager
+	//Templates returns the templates in the manager
 	Templates() []*ht.Template
 }
 
