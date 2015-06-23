@@ -11,11 +11,6 @@ import (
 	"sync"
 )
 
-var (
-	NotADirErr          = errors.New("This is not a directory.")
-	TemplateNotFoundErr = errors.New("The template could not be found.")
-)
-
 type Manager interface {
 	//AddDirectories will add a base directory to be scanned for templates
 	//Any future directories you add SHOULD NOT be a descendant of a directory
