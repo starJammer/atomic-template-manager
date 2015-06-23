@@ -112,6 +112,7 @@ func main() {
 
 ## Disadvantages
 
+### 1 
 The way `html.Template` works means that the whole template hierarchy needs to be 
 reparsed if you want to "watch" for changes by setting `SetReparseOnExecute( true )`.
 `html.Template` doesn't easily and directly allow one template definition
@@ -124,6 +125,7 @@ allow
 
 Oh well.
 
+### 2
 Also, even though you can add multiple directories to be parsed, all the templates 
 from all directories are added to the same hierarchy so you can't have any duplicate
 templates across directories. You can't have:
@@ -133,9 +135,16 @@ templates across directories. You can't have:
 
 You'll get some error....well, I haven't tested this but I know it'll break.
 
+### 3
+I haven't implemented the part where you can add %%- in front of files and directories,
+as in `00-directory/01-template-1.html`. If I get to this I'll get to it. The numbers
+were used in pattern lab for specifying order of templates in a gui but I didn't really see
+too much use for this feature here. Let me know if you want it. The function is already
+there, I just have to write it.
+
 ## Miscellaneous
 
 I tried to make it safe from concurrent goroutines by using a mutex. I also tried
-to make the parsing of the directories semi-concurrent. That is to say, different
+to make the parsing of the directories semi-concurrent. That is to say, different root
 directories will be parse concurrently but each root directory will be parsed
 sequentially.
