@@ -130,8 +130,8 @@ Also, even though you can add multiple directories to be parsed, all the templat
 from all directories are added to the same hierarchy so you can't have any duplicate
 templates across directories. You can't have:
 
-    /tmp/dir1/test-1.html
-    /tmp/dir2/test-1.html
+    /tmp/rootdir1/atom/test-1.html
+    /tmp/rootdir2/atom/test-1.html
 
 You'll get some error....well, I haven't tested this but I know it'll break.
 
